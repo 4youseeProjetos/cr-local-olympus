@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arquitetura — cr-local-olympus</title>
+<style>
+  :root{
+    --bg:#0f1115; --node:#1a1e26; --line:#39404d; --line2:#2a3038;
+    --tx:#e8eaed; --tx2:#9aa3b2; --tx3:#6f7887;
+    --q:#4da3ff; --s:#ff7a59; --t:#8b7cf6; --ok:#3ddc97;
+    --gate:#ffc857; --hook:#5ed3d3; --stop:#f2555a;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;padding:48px 24px 64px;background:var(--bg);color:var(--tx);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  .canvas{max-width:780px;margin:0 auto}
+  h1{
+    font-size:13px;text-transform:uppercase;letter-spacing:.16em;
+    color:var(--tx3);font-weight:600;text-align:center;margin:0 0 40px;
+  }
+  code{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.9em;color:#cfd6e0}
+
+  /* ---------- nós ---------- */
+  .node{
+    background:var(--node);border:1px solid var(--line);
+    border-radius:8px;padding:12px 16px;text-align:center;
+  }
+  .node .name{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:14px;color:var(--tx)}
+  .node .role{font-size:12px;color:var(--tx2);margin-top:3px}
+  .node.q{border-color:var(--q)}    .node.q .name{color:var(--q)}
+  .node.s{border-color:var(--s)}    .node.s .name{color:var(--s)}
+  .node.t{border-color:var(--t)}    .node.t .name{color:var(--t)}
+  .node.out{border-color:var(--ok)} .node.out .name{color:var(--ok)}
+  .node.entry{border-style:dashed}
+
+  /* tabela de metadados dentro do nó */
+  .meta{
+    list-style:none;margin:10px 0 0;padding:9px 0 0;
+    border-top:1px solid var(--line2);text-align:left;
+    font-family:"SF Mono",Menlo,Consolas,monospace;font-size:11px;
+  }
+  .meta li{display:flex;gap:8px;line-height:1.7;color:var(--tx2)}
+  .meta li b{
+    flex:0 0 62px;color:var(--tx3);font-weight:400;
+    text-transform:uppercase;letter-spacing:.06em;font-size:10px;
+  }
+
+  /* gate humano */
+  .node.gate{border-color:var(--gate);background:#201d14;border-radius:8px/22px}
+  .node.gate .name{color:var(--gate)}
+  .node.gate .role{color:#d8c9a4}
+  .node.gate .tagline{
+    font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--gate);opacity:.75;margin-bottom:5px;
+  }
+  .node.gate .meta li b{color:#8c7a4d}
+  .node.gate .meta{border-top-color:#3b3423}
+  .node.gate .meta li{color:#d8c9a4}
+
+  .mid{max-width:320px;margin:0 auto}
+  .wide{max-width:400px;margin:0 auto}
+
+  /* ---------- conectores ---------- */
+  .conn{position:relative;height:26px}
+  .conn.tall{height:52px}
+  .conn::before{
+    content:"";position:absolute;left:50%;top:0;
+    width:2px;height:100%;background:var(--line);transform:translateX(-1px);
+  }
+  .conn.arrow::after{
+    content:"";position:absolute;left:50%;bottom:-1px;width:0;height:0;
+    border:5px solid transparent;border-top-color:var(--line);transform:translateX(-5px);
+  }
+  .conn .tag{
+    position:absolute;left:calc(50% + 14px);top:50%;transform:translateY(-50%);
+    font-size:11px;color:var(--tx3);white-space:nowrap;
+  }
+
+  /* guarda de engine sobre um conector */
+  .guard{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    background:var(--bg);border:1px solid var(--stop);border-radius:20px;
+    padding:4px 12px;font-size:10.5px;color:#ff9498;white-space:nowrap;
+    font-family:"SF Mono",Menlo,Consolas,monospace;
+  }
+
+  /* fork/join alinhados aos centros das colunas (25% / 75%) */
+  .fork,.join{position:relative;height:52px}
+  .fork::before{
+    content:"";position:absolute;left:50%;top:0;width:2px;height:26px;
+    background:var(--line);transform:translateX(-1px);
+  }
+  .join::before{
+    content:"";position:absolute;left:50%;top:26px;width:2px;height:26px;
+    background:var(--line);transform:translateX(-1px);
+  }
+  .bar{position:absolute;top:26px;left:25%;right:25%;height:2px;background:var(--line)}
+  .leg{position:absolute;width:2px;height:26px;background:var(--line)}
+  .fork .leg{top:26px} .join .leg{top:0}
+  .leg.l{left:25%;transform:translateX(-1px)}
+  .leg.r{left:75%;transform:translateX(-1px)}
+  .fork .tag,.join .tag{
+    position:absolute;left:calc(50% + 14px);top:6px;
+    font-size:11px;color:var(--tx3);white-space:nowrap;
+  }
+  .join .tag{top:auto;bottom:4px}
+
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+
+  /* ---------- fronteira ---------- */
+  .boundary{position:relative;margin:24px 0;border-top:1px dashed var(--line)}
+  .boundary span{
+    position:absolute;left:50%;top:-9px;transform:translateX(-50%);
+    background:var(--bg);padding:0 12px;
+    font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--tx3);
+  }
+
+  /* ---------- cerca read-only ---------- */
+  .fence{border:1px dashed #4a3f2e;border-radius:12px;padding:16px 18px 18px;margin:0}
+  .fence>legend{
+    font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    color:#a4863f;padding:0 8px;margin-left:8px;
+  }
+  .fence-rule{
+    font-family:"SF Mono",Menlo,Consolas,monospace;font-size:10.5px;
+    color:#8c7a4d;text-align:center;margin:0 0 16px;line-height:1.8;
+  }
+
+  /* ---------- hook lateral ---------- */
+  .hook{
+    border:1px solid var(--hook);border-left-width:3px;border-radius:6px;
+    background:#12232333;padding:9px 13px;margin:0 0 16px;
+    font-size:11.5px;color:#a9dede;
+  }
+  .hook b{
+    display:block;font-family:"SF Mono",Menlo,Consolas,monospace;
+    font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--hook);margin-bottom:3px;font-weight:600;
+  }
+  .hook code{color:#c9eaea}
+
+  /* ---------- legenda ---------- */
+  .legend{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:8px 20px;margin-top:44px;padding-top:20px;
+    border-top:1px solid var(--line);font-size:11px;color:var(--tx3);
+  }
+  .legend i{
+    display:inline-block;width:20px;height:0;vertical-align:middle;
+    border-top:2px solid var(--line);margin-right:7px;
+  }
+  .legend i.dash{border-top-style:dashed}
+  .legend i.gate{border-top-color:var(--gate)}
+  .legend i.hook{border-top-color:var(--hook)}
+  .legend i.stop{border-top-color:var(--stop)}
+
+  @media(max-width:600px){
+    .pair{grid-template-columns:1fr;gap:12px}
+    .bar,.leg,.fork::before,.join::before{display:none}
+    .fork,.join{height:14px}
+    .fork .tag,.join .tag{position:static;display:block;text-align:center}
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+
+  <h1>cr-local-olympus &middot; arquitetura</h1>
+
+  <div class="mid">
+    <div class="node entry">
+      <div class="name">/cr-local-olympus</div>
+      <div class="role">skill &middot; entrada</div>
+      <ul class="meta">
+        <li><b>arquivo</b>skills/cr-local-olympus/SKILL.md</li>
+        <li><b>arg</b>$ARGUMENTS</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="conn arrow"><span class="tag">expande em prompt</span></div>
+
+  <div class="wide">
+    <div class="node">
+      <div class="name">cr-olympus</div>
+      <div class="role">orquestrador &middot; nível 0</div>
+      <ul class="meta">
+        <li><b>modelo</b>(o da sessão)</li>
+        <li><b>tool</b>subagent</li>
+        <li><b>crew</b>trustedAgents: cr-*</li>
+        <li><b>papel</b>despacha e consolida</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="conn arrow"></div>
+
+  <div class="wide">
+    <div class="node gate">
+      <div class="tagline">pausa &middot; humano no circuito</div>
+      <div class="name">confirmar base do diff</div>
+      <div class="role">qual branch base &middot; está atualizada?</div>
+      <ul class="meta">
+        <li><b>exige</b><code>git fetch</code> antes de comparar</li>
+        <li><b>saída</b>BASE..HEAD resolvido</li>
+        <li><b>motivo</b>base velha polui o diff</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="conn tall arrow">
+    <span class="guard">⛔ hook preToolUse &middot; matcher: subagent &middot; exit 2 até confirmar</span>
+  </div>
+
+  <div class="boundary"><span>nível 1 &middot; subagentes não fazem fan-out</span></div>
+
+  <fieldset class="fence">
+    <legend>read-only</legend>
+
+    <p class="fence-rule">
+      sem tool <code>write</code> no código &middot; <code>write.allowedPaths</code> só em reports/<br>
+      <code>shell.denyByDefault</code> &middot; libera apenas <code>git diff|show|log|blame|status</code>
+    </p>
+
+    <div class="hook">
+      <b>hook agentSpawn &middot; em todo subagente</b>
+      Injeta <code>BASE..HEAD</code> e <code>git diff --stat</code> direto no contexto inicial.
+      Nenhum revisor gasta turno descobrindo o que revisar.
+    </div>
+
+    <div class="mid">
+      <div class="node t">
+        <div class="name">cr-triage</div>
+        <div class="role">risco por arquivo</div>
+        <ul class="meta">
+          <li><b>modelo</b>gpt-5.6-terra &middot; 1,00x</li>
+          <li><b>janela</b>272k</li>
+          <li><b>saída</b>ALTO / MÉDIO / BAIXO</li>
+          <li><b>natureza</b>consultivo — não filtra</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="fork">
+      <span class="tag">lista priorizada &middot; fail-fast: falha em um cancela o irmão</span>
+      <div class="bar"></div>
+      <div class="leg l"></div>
+      <div class="leg r"></div>
+    </div>
+
+    <div class="pair">
+      <div class="node q">
+        <div class="name">cr-quality</div>
+        <div class="role">qualidade &middot; arquitetura</div>
+        <ul class="meta">
+          <li><b>modelo</b>claude-opus-5 &middot; 2,20x</li>
+          <li><b>janela</b>1M</li>
+          <li><b>entrada</b>diff completo</li>
+          <li><b>prompt</b>code-reviewer.md</li>
+          <li><b>herda</b>global-rules.md</li>
+        </ul>
+      </div>
+      <div class="node s">
+        <div class="name">cr-security</div>
+        <div class="role">segurança do diff</div>
+        <ul class="meta">
+          <li><b>modelo</b>gpt-5.6-sol &middot; 2,40x</li>
+          <li><b>janela</b>272k</li>
+          <li><b>entrada</b>diff completo</li>
+          <li><b>prompt</b>differential-review</li>
+          <li><b>corte</b>confiança &gt; 80%</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="join">
+      <span class="tag">laudo A + laudo B propagam via depends_on</span>
+      <div class="leg l"></div>
+      <div class="leg r"></div>
+      <div class="bar"></div>
+    </div>
+
+    <div class="wide">
+      <div class="node">
+        <div class="name">cross-check</div>
+        <div class="role">cada um recebe o laudo do outro</div>
+        <ul class="meta">
+          <li><b>modelos</b>os mesmos dois</li>
+          <li><b>segur.</b>achado de qualidade tem risco?</li>
+          <li><b>qual.</b>fix de segurança quebra design?</li>
+          <li><b>filtro</b>falso positivo &middot; 17 exclusões</li>
+          <li><b>exige</b>declarar cobertura X/Y</li>
+        </ul>
+      </div>
+    </div>
+
+  </fieldset>
+
+  <div class="conn tall arrow">
+    <span class="tag">stages folha retornam ao pai</span>
+  </div>
+
+  <div class="wide">
+    <div class="node out">
+      <div class="name">laudo único</div>
+      <div class="role">consolidado pelo orquestrador</div>
+      <ul class="meta">
+        <li><b>dedupe</b>achados sobrepostos</li>
+        <li><b>severid.</b>reconcilia divergência</li>
+        <li><b>veredito</b>merge / com ajustes / não</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i></i>fluxo de execução</span>
+    <span><i class="dash"></i>fronteira de escopo</span>
+    <span><i class="gate"></i>gate humano: bloqueia</span>
+    <span><i class="stop"></i>guarda de engine: hook</span>
+    <span><i class="hook"></i>injeção de contexto</span>
+    <span>paralelo: ramos independentes</span>
+  </div>
+
+</div>
+</body>
+</html>

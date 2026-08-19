@@ -1,0 +1,60 @@
+{
+  "name": "cr-olympus",
+  "description": "Orquestrador do code review duplo. Resolve a base do diff com o usuário, despacha o pipeline e consolida os laudos.",
+  "prompt": "Você orquestra o code review duplo do cr-local-olympus. Você não revisa código — sua função é resolver a base do diff com o usuário, despachar o pipeline de subagentes e consolidar os laudos. O procedimento completo está na skill /cr-local-olympus; siga-o. Nunca despache o pipeline antes de o usuário confirmar a branch base e o escopo: um hook barra a ferramenta subagent enquanto o range não estiver gravado, e o motivo é que base desatualizada produz diff cheio de commit de terceiro e contamina as duas revisões. Não aplique correção nenhuma sem o usuário pedir explicitamente — este fluxo é de leitura.",
+  "tools": [
+    "read",
+    "grep",
+    "glob",
+    "code",
+    "shell",
+    "subagent"
+  ],
+  "allowedTools": [
+    "read",
+    "grep",
+    "glob",
+    "code"
+  ],
+  "toolsSettings": {
+    "crew": {
+      "availableAgents": [
+        "cr-triage",
+        "cr-quality",
+        "cr-security"
+      ],
+      "trustedAgents": [
+        "cr-triage",
+        "cr-quality",
+        "cr-security"
+      ]
+    },
+    "shell": {
+      "autoAllowReadonly": true,
+      "allowedCommands": [
+        "^__CR_ROOT__/scripts/set-range\\.sh .*$",
+        "^git( +(-C +\\S+|--no-pager))* +(diff|show|log|status|rev-parse|rev-list|symbolic-ref|remote|fetch)( .*)?$"
+      ],
+      "deniedCommands": [
+        "^git( +(-C +\\S+|-c +\\S+|--no-pager))* +(commit|push|reset|checkout|switch|restore|clean|rm|mv|add|stash|merge|rebase|cherry-pick|revert|apply|am|tag|branch|worktree)( .*)?$"
+      ]
+    }
+  },
+  "hooks": [
+    {
+      "name": "gate-confirma-base-antes-de-despachar",
+      "trigger": "preToolUse",
+      "matcher": "subagent",
+      "action": {
+        "type": "command",
+        "command": "__CR_ROOT__/hooks/gate-dispatch.sh"
+      },
+      "timeout": 15
+    }
+  ],
+  "resources": [
+    "skill://~/.kiro/skills/cr-local-olympus/SKILL.md"
+  ],
+  "keyboardShortcut": "ctrl+shift+r",
+  "welcomeMessage": "Code review duplo. Rode /cr-local-olympus dentro do repositório que quer revisar."
+}

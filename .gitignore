@@ -1,0 +1,19 @@
+# Laudos gerados pelos revisores — saída de execução, não fonte
+reports/
+*.review.md
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]

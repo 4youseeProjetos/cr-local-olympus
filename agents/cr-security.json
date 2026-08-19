@@ -1,0 +1,62 @@
+{
+  "name": "cr-security",
+  "description": "Revisor de segurança de diff. Read-only. Só reporta acima de 80% de confiança, com fluxo de dados e cenário de exploração.",
+  "prompt": "file://__CR_ROOT__/prompts/cr-security.md",
+  "model": "gpt-5.6-sol",
+  "tools": [
+    "read",
+    "grep",
+    "glob",
+    "code",
+    "shell"
+  ],
+  "allowedTools": [
+    "read",
+    "grep",
+    "glob",
+    "code",
+    "shell"
+  ],
+  "toolsSettings": {
+    "shell": {
+      "denyByDefault": true,
+      "allowedCommands": [
+        "^git( +(-C +\\S+|-c +\\S+|--no-pager|--git-dir[= ]\\S+|--work-tree[= ]\\S+))* +diff( .*)?$",
+        "^git( +(-C +\\S+|-c +\\S+|--no-pager|--git-dir[= ]\\S+|--work-tree[= ]\\S+))* +show( .*)?$",
+        "^git( +(-C +\\S+|-c +\\S+|--no-pager|--git-dir[= ]\\S+|--work-tree[= ]\\S+))* +log( .*)?$",
+        "^git( +(-C +\\S+|-c +\\S+|--no-pager|--git-dir[= ]\\S+|--work-tree[= ]\\S+))* +blame( .*)?$",
+        "^git( +(-C +\\S+|-c +\\S+|--no-pager|--git-dir[= ]\\S+|--work-tree[= ]\\S+))* +status( .*)?$",
+        "^git( +(-C +\\S+|-c +\\S+|--no-pager|--git-dir[= ]\\S+|--work-tree[= ]\\S+))* +rev-parse( .*)?$",
+        "^git( +(-C +\\S+|-c +\\S+|--no-pager|--git-dir[= ]\\S+|--work-tree[= ]\\S+))* +rev-list( .*)?$",
+        "^git( +(-C +\\S+|-c +\\S+|--no-pager|--git-dir[= ]\\S+|--work-tree[= ]\\S+))* +ls-files( .*)?$",
+        "^git( +(-C +\\S+|-c +\\S+|--no-pager|--git-dir[= ]\\S+|--work-tree[= ]\\S+))* +cat-file( .*)?$",
+        "^git( +(-C +\\S+|-c +\\S+|--no-pager|--git-dir[= ]\\S+|--work-tree[= ]\\S+))* +describe( .*)?$",
+        "^git( +(-C +\\S+|-c +\\S+|--no-pager|--git-dir[= ]\\S+|--work-tree[= ]\\S+))* +shortlog( .*)?$"
+      ],
+      "deniedCommands": [
+        "^git( +(-C +\\S+|-c +\\S+|--no-pager|--git-dir[= ]\\S+|--work-tree[= ]\\S+))* +(commit|push|reset|checkout|switch|restore|clean|rm|mv|add|stash|merge|rebase|cherry-pick|revert|apply|am|tag|branch|worktree|config|remote|fetch|pull|init|clone|gc|prune|update-ref|symbolic-ref|submodule)( .*)?$"
+      ]
+    }
+  },
+  "hooks": [
+    {
+      "name": "injeta-range-do-diff",
+      "trigger": "agentSpawn",
+      "action": {
+        "type": "command",
+        "command": "__CR_ROOT__/hooks/diff-context.sh"
+      },
+      "timeout": 20
+    },
+    {
+      "name": "bloqueia-mutacao-git",
+      "trigger": "preToolUse",
+      "matcher": "shell",
+      "action": {
+        "type": "command",
+        "command": "__CR_ROOT__/hooks/block-git-mutations.py"
+      },
+      "timeout": 10
+    }
+  ]
+}
