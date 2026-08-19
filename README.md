@@ -68,7 +68,8 @@ produz.
       │                 (bloqueado por hook até você responder)
       ▼
    triagem ──┬── qualidade ──┬── cross-qualidade ─┐
-             └── seguranca ──┴── cross-seguranca ─┴─▶ laudo único
+             └── seguranca ──┴── cross-seguranca ─┴─▶ laudo em arquivo
+                                                      + resumo curto no chat
 ```
 
 `qualidade` e `seguranca` rodam em paralelo **sem ver o laudo um do outro** — a
@@ -222,6 +223,26 @@ Isso calibra o ruído dos revisores antes de você confiar neles em mudança gra
 que um revisor não cobriu tudo — o que acontece em silêncio, porque o limite de turnos
 do subagente não é configurável e, ao bater, ele devolve trabalho parcial sem erro. O
 orquestrador deve redespachar sozinho o que truncou; se ele não fizer, cobre.
+
+## Saída
+
+Duas saídas com formatos diferentes, porque laudo completo no chat se perde no scroll:
+
+**Arquivo** — `<repo>/.cr-local-olympus/AAAA-MM-DD_HHMM_<escopo>.md`, com data, hora,
+range, volume, perfil, modelos usados e cobertura por stage no cabeçalho. No corpo,
+todos os achados com fluxo de dados e cenário de exploração, mais as divergências
+entre revisores e o que foi descartado como falso positivo.
+
+O diretório carrega um `.gitignore` com `*`, então se auto-ignora — sem isso os laudos
+apareceriam como arquivos não rastreados e o fluxo passaria a revisar a própria saída
+na rodada seguinte. O `.gitignore` do seu repositório não é tocado.
+
+**Chat** — no máximo ~15 linhas, em tópicos, só Crítico e Importante, uma linha por
+achado, com o caminho do arquivo no fim. Se algum stage truncou, isso vira a primeira
+linha, antes do veredito: cobertura parcial invalida o veredito.
+
+Não há seção de pontos fortes em nenhuma das duas. O laudo lista o que precisa de
+decisão, e o que está correto não precisa.
 
 ## Componentes
 

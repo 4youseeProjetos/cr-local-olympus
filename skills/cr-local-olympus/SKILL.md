@@ -257,30 +257,90 @@ O pipeline é **fail-fast**: se um stage falhar, os irmãos em execução são
 cancelados. Se isso acontecer, diga qual stage caiu e o motivo — não apresente
 resultado parcial como se fosse revisão completa.
 
-## Fase 5 — Consolidar
+## Fase 5 — Consolidar: laudo em arquivo, resumo no chat
 
-Junte os laudos — os dois do cross-check mais o de testes — em **um** relatório:
+A saída tem **dois destinos com formatos diferentes**. Laudo completo despejado no
+chat é ilegível e se perde no scroll; o que o dev precisa na hora é a lista do que
+bloqueia o merge.
 
-- **Dedupe** — achado que os dois apontaram vira um item, marcado como confirmado
-  em dupla. Concordância entre modelos de famílias diferentes é o sinal mais forte
-  que este fluxo produz; destaque.
-- **Divergência** — quando um aponta e o outro refuta, mostre os dois lados e diga
-  qual argumento é mais forte e por quê. Não silencie o desacordo.
-- **Severidade** — Crítico / Importante / Menor. Calibre: não é tudo crítico.
-- **Cobertura** — reproduza as linhas `analisei X de Y` de cada stage. Se algum
-  não cobriu tudo, diga na abertura do relatório.
-- **Testes** — seção própria com o laudo do `cr-test`. Não dilua os achados dele
-  nos outros: a pergunta "os testes provam algo?" tem resposta independente de
-  "o código está correto?", e misturar as duas esconde suíte fraca sob código bom.
-- **Perfil e shards** — diga qual perfil de tamanho foi usado e, se houve
-  fragmentação, quantos shards e se algum achado cruzou fronteira de shard.
-- **Veredito** — pronto para merge / com ajustes / não.
+### 5a — Grave o laudo completo em arquivo
 
-Cada item precisa de referência `arquivo:linha`, o que está errado, por que
-importa, e como corrigir se não for óbvio.
+No repositório revisado, não aqui:
 
-Ao final, pergunte se o usuário quer que você aplique alguma correção. **Você não
-aplica nada sem pedido explícito** — este fluxo é de leitura.
+```
+<REPO>/.cr-local-olympus/<AAAA-MM-DD>_<HHMM>_<escopo>.md
+```
+
+O `<escopo>` é a branch, ou `working`, ou os SHAs abreviados. Exemplo:
+`.cr-local-olympus/2026-08-19_1607_feature-pagamentos.md`
+
+**Na primeira vez, crie também** `<REPO>/.cr-local-olympus/.gitignore` com uma única
+linha contendo `*`. Isso faz o diretório se auto-ignorar, incluindo o próprio
+`.gitignore`. Sem isso os laudos apareceriam como arquivos não rastreados e viriam a
+ser revisados na próxima rodada em modo `working` — o fluxo revisando a própria saída.
+Não altere o `.gitignore` do usuário.
+
+Cabeçalho obrigatório do arquivo:
+
+```markdown
+# Code review — <nome do repo>
+
+- **Data:** AAAA-MM-DD HH:MM
+- **Escopo:** working | branch | range
+- **Range:** <BASE_SHA>..<HEAD_SHA>
+- **Branch:** <atual> contra <base>
+- **Volume:** N arquivos de produção (N linhas), N de teste (N linhas)
+- **Perfil:** A | B | C — com quantos shards, se houve
+- **Modelos:** qualidade=<modelo>, segurança=<modelo>, testes=<modelo>
+- **Cobertura:** a linha `analisei X de Y` de cada stage
+```
+
+Depois o corpo completo: cada achado com `arquivo:linha`, o que está errado, por que
+importa, como corrigir, e nos de segurança o fluxo de dados e o cenário de exploração.
+Seções separadas para **Segurança**, **Qualidade** e **Testes**.
+
+O que o laudo em arquivo precisa conter e o resumo não:
+
+- **Divergência entre revisores** — quando um aponta e o outro refuta, os dois lados,
+  e qual argumento é mais forte. Não silencie desacordo.
+- **Concordância em dupla** — achado que os dois viram, marcado. Modelos de famílias
+  diferentes concordando é o sinal mais forte que este fluxo produz.
+- **Descartados como falso positivo**, com o motivo.
+- **Cobertura por stage**, e o que ficou de fora se algo truncou.
+
+### 5b — Responda no chat curto e em tópicos
+
+Máximo ~15 linhas. Formato:
+
+```
+Code review · <N> achados · <caminho do laudo>
+
+VEREDITO: não pronto | com ajustes | pronto para merge
+
+BLOQUEIA (críticos)
+- arquivo:linha — o problema em uma linha
+- arquivo:linha — o problema em uma linha
+
+ATENÇÃO (importantes)
+- arquivo:linha — o problema em uma linha
+
+TESTES: <uma linha: sustentam a mudança ou não>
+
+Laudo completo: .cr-local-olympus/<arquivo>.md
+```
+
+Regras do resumo:
+
+- **Uma linha por achado.** Sem fluxo de dados, sem cenário de exploração, sem
+  trecho de código — isso está no arquivo.
+- **Só Crítico e Importante.** Menores existem no arquivo e não no chat.
+- **Sem seção de pontos fortes.** Nem no resumo, nem no laudo.
+- Se nada crítico ou importante apareceu, diga isso em uma linha e aponte o arquivo.
+- **Se algum stage truncou**, isso vira a primeira linha do resumo, antes do veredito:
+  cobertura parcial invalida o veredito, e o dev precisa saber antes de ler o resto.
+
+Ao final, pergunte se o dev quer que você aplique alguma correção. **Você não aplica
+nada sem pedido explícito** — este fluxo é de leitura.
 
 ---
 

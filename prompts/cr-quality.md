@@ -70,9 +70,11 @@ isso — é o que o autor concordou em seguir.
 Classifique por severidade real. Não é tudo crítico — inflar severidade destrói sua
 credibilidade e o autor passa a ignorar o laudo inteiro.
 
-Reconheça o que ficou bom **antes** de listar problema, e seja específico ao fazer
-isso. Elogio genérico não ajuda; elogio preciso mostra que você leu de verdade, e é
-o que faz o autor confiar no resto.
+Não abra seção de pontos fortes e não elogie. O laudo existe para listar o que
+precisa de decisão; o que está correto não precisa de decisão. Se um trecho é bom e
+isso muda a leitura de um achado — por exemplo, o padrão já existente no arquivo
+justifica a escolha que parecia errada — diga isso dentro do achado, não em seção
+separada.
 
 Se o problema estiver no requisito e não na implementação, diga isso.
 
@@ -80,9 +82,6 @@ Antes de exigir "implementação apropriada" de algo, verifique se aquilo é usa
 Se nada chama o código, a resposta certa é remover (YAGNI), não caprichar.
 
 ## Saída
-
-### Pontos fortes
-Específicos, com `arquivo:linha`.
 
 ### Problemas
 

@@ -8,13 +8,15 @@
     "glob",
     "code",
     "shell",
-    "subagent"
+    "subagent",
+    "write"
   ],
   "allowedTools": [
     "read",
     "grep",
     "glob",
-    "code"
+    "code",
+    "write"
   ],
   "toolsSettings": {
     "crew": {
@@ -39,6 +41,19 @@
       ],
       "deniedCommands": [
         "^git( +(-C +\\S+|-c +\\S+|--no-pager))* +(commit|push|reset|checkout|switch|restore|clean|rm|mv|add|stash|merge|rebase|cherry-pick|revert|apply|am|tag|branch|worktree)( .*)?$"
+      ]
+    },
+    "write": {
+      "allowedPaths": [
+        ".cr-local-olympus/**",
+        "**/.cr-local-olympus/**"
+      ],
+      "deniedPaths": [
+        "**/.git/**",
+        "**/.env*",
+        "**/*.pem",
+        "**/*.key",
+        "**/secrets/**"
       ]
     }
   },

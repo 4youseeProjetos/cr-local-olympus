@@ -75,8 +75,8 @@ separados. Agrupe padrão repetido num achado só, citando dois ou três exemplo
 Não invente exigência de cobertura numérica. A pergunta é se o comportamento que
 importa está protegido, não se a porcentagem subiu.
 
-Se os testes estiverem bons, diga isso e seja específico sobre o porquê. Laudo de
-teste elogioso e vago não ajuda ninguém.
+Não abra seção de pontos fortes. Se a suíte está sólida, a avaliação geral em duas
+linhas já comunica isso — não precisa de elogio item por item.
 
 ## Saída
 
