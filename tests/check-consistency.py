@@ -26,6 +26,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 AGENTS_DIR = ROOT / "agents"
 DIAGRAM = ROOT / "docs" / "fluxo-cr.html"
 SKILL = ROOT / "skills" / "cr-local-olympus" / "SKILL.md"
+README = ROOT / "README.md"
 
 MODEL_IN_DIAGRAM = "(o da sessão)"
 """Marcador para agente sem model fixo, que herda o modelo da sessao."""
@@ -143,13 +144,45 @@ def iter_path_references(config: dict) -> list[str]:
     return references
 
 
+def check_readme_table(agents: dict[str, dict], readme_text: str) -> list[str]:
+    """Confere a tabela de Componentes do README contra as configs.
+
+    O README enumera agente e modelo em prosa, e prosa envelhece: a contagem de
+    agentes ja ficou errada duas vezes quando o cr-test entrou. Enumeracao que nao
+    da' para eliminar, da' para testar.
+    """
+    row = re.compile(
+        r"^\|\s*`(?P<name>cr-[\w-]+)`\s*\|[^|]*\|\s*(?P<model>[^|]+?)\s*\|",
+        re.M,
+    )
+    declared = {
+        m.group("name"): m.group("model").strip().strip("`")
+        for m in row.finditer(readme_text)
+    }
+
+    problems: list[str] = []
+    for name, config in agents.items():
+        expected = config.get("model") or "o da sessão"
+        if name not in declared:
+            problems.append(f"{name}: ausente na tabela de Componentes do README")
+        elif declared[name] != expected:
+            problems.append(
+                f"{name}: README diz {declared[name]!r}, config diz {expected!r}"
+            )
+    for name in sorted(set(declared) - set(agents)):
+        problems.append(f"{name}: na tabela do README mas nao existe em agents/")
+    return problems
+
+
 def main() -> int:
     agents = load_agents()
     nodes = extract_diagram_nodes(DIAGRAM.read_text(encoding="utf-8"))
     skill_text = SKILL.read_text(encoding="utf-8")
+    readme_text = README.read_text(encoding="utf-8")
 
     checks = {
         "modelo do diagrama vs config": check_models(agents, nodes),
+        "tabela de componentes do README": check_readme_table(agents, readme_text),
         "revisores citados na skill": check_skill_roles(agents, skill_text),
         "allowlist do orquestrador": check_orchestrator_allowlist(agents),
         "prompts e hooks referenciados": check_referenced_files(agents),

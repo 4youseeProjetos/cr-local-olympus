@@ -108,7 +108,13 @@ install_all() {
 # O install é o último ponto em que temos a atenção de quem instalou. Se os próximos
 # passos não saírem aqui, o usuário roda a skill do agente errado e o gate — que é a
 # salvaguarda central — fica inerte sem nenhum sinal.
+#
+# A contagem de agentes é calculada, não escrita: já ficou errada uma vez quando o
+# cr-test entrou e este texto continuou dizendo "4 agentes".
 print_next_steps() {
+  local agent_count
+  agent_count="$(agent_templates | wc -l)"
+
   cat <<EOF
 
 Raiz resolvida: ${ROOT}
@@ -117,7 +123,13 @@ Manifesto:      ${MANIFEST}
 PRÓXIMOS PASSOS
 
   1. Reinicie a sessão do kiro-cli.
-     Agente novo só é carregado na inicialização.
+
+     Não é formalidade. Config de agente tem hot-reload, mas foi verificado que
+     agente registrado no meio de uma sessão é aceito pelo nome enquanto seu
+     campo 'model' é ignorado — o stage cai no modelo da sessão. Numa revisão
+     isso significaria os dois revisores rodando no MESMO modelo, sem erro
+     nenhum, e concordando entre si por serem o mesmo modelo. É a falha mais
+     silenciosa deste fluxo, porque o laudo continua parecendo legítimo.
 
   2. Entre no agente orquestrador:
        /agent cr-olympus
@@ -132,7 +144,7 @@ PRÓXIMOS PASSOS
 CONFERIR
 
   ./install.sh --status               todos devem dizer "instalado"
-  kiro-cli agent list | grep cr-      4 agentes
+  kiro-cli agent list | grep cr-      ${agent_count} agentes
   python3 tests/check-consistency.py  deve terminar em 0 divergências
 EOF
 }

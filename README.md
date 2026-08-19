@@ -121,15 +121,18 @@ cd cr-local-olympus
 ./install.sh
 ```
 
-**2. Confira que os quatro agentes entraram:**
+**2. Confira que os agentes entraram:**
 
 ```bash
 ./install.sh --status              # todos devem dizer "instalado"
-kiro-cli agent list | grep cr-     # cr-olympus, cr-quality, cr-security, cr-triage
+kiro-cli agent list | grep cr-     # os agentes da tabela de Componentes
 python3 tests/check-consistency.py # deve terminar em "0 divergencia(s)"
 ```
 
-**3. Reinicie a sessão do kiro-cli** — agente novo é carregado na inicialização.
+**3. Reinicie a sessão do kiro-cli.** Não é formalidade: agente registrado no meio de
+uma sessão é aceito pelo nome, mas seu campo `model` é ignorado e o stage cai no
+modelo da sessão. Numa revisão isso significaria os dois revisores no **mesmo**
+modelo, sem erro nenhum, concordando entre si por serem o mesmo modelo.
 
 Os componentes são globais, então o comando funciona de dentro de qualquer
 repositório. É o que importa: a revisão roda no repo que você está revisando, não
@@ -151,6 +154,7 @@ O risco real não é falta de automação, é **drift**: o diagrama afirmar um m
 agente usar outro. Este script cobre isso sem gerador, conferindo quatro coisas:
 
 - o modelo de cada agente contra o que o diagrama declara
+- o modelo de cada agente contra a tabela de Componentes deste README
 - se todos os revisores são citados na skill (senão nunca são despachados)
 - se todos estão em `crew.availableAgents` do orquestrador (senão o dispatch falha)
 - se os prompts e hooks referenciados existem
