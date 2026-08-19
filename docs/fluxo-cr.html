@@ -9,7 +9,7 @@
     --bg:#0f1115; --node:#1a1e26; --line:#39404d; --line2:#2a3038;
     --tx:#e8eaed; --tx2:#9aa3b2; --tx3:#6f7887;
     --q:#4da3ff; --s:#ff7a59; --t:#8b7cf6; --ok:#3ddc97;
-    --gate:#ffc857; --hook:#5ed3d3; --stop:#f2555a;
+    --gate:#ffc857; --hook:#5ed3d3; --stop:#f2555a; --t2:#5ed37f;
   }
   *{box-sizing:border-box}
   body{
@@ -34,7 +34,9 @@
   .node.s{border-color:var(--s)}    .node.s .name{color:var(--s)}
   .node.t{border-color:var(--t)}    .node.t .name{color:var(--t)}
   .node.out{border-color:var(--ok)} .node.out .name{color:var(--ok)}
+  .node.t2{border-color:var(--t2)}  .node.t2 .name{color:var(--t2)}
   .node.entry{border-style:dashed}
+  .node.dim{border-style:dashed;border-color:#5a6372}
 
   /* tabela de metadados dentro do nó */
   .meta{
@@ -109,6 +111,8 @@
   .join .tag{top:auto;bottom:4px}
 
   .pair{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .side{margin-top:20px;padding-left:6%;border-left:2px dashed var(--t2);
+        margin-left:2%}
 
   /* ---------- fronteira ---------- */
   .boundary{position:relative;margin:24px 0;border-top:1px dashed var(--line)}
@@ -215,6 +219,21 @@
     <span class="guard">⛔ hook preToolUse &middot; matcher: subagent &middot; exit 2 até confirmar</span>
   </div>
 
+  <div class="wide">
+    <div class="node dim">
+      <div class="name">dimensionar</div>
+      <div class="role">perfil pelo volume de produção</div>
+      <ul class="meta">
+        <li><b>A</b>≤15 arq / ≤800 lin → passe único</li>
+        <li><b>B</b>≤40 arq / ≤2500 lin → inverte modelos</li>
+        <li><b>C</b>acima → fragmenta por módulo</li>
+        <li><b>teste</b>sempre desviado ao cr-test</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="conn arrow"></div>
+
   <div class="boundary"><span>nível 1 &middot; subagentes não fazem fan-out</span></div>
 
   <fieldset class="fence">
@@ -245,7 +264,7 @@
     </div>
 
     <div class="fork">
-      <span class="tag">lista priorizada &middot; fail-fast: falha em um cancela o irmão</span>
+      <span class="tag">lista priorizada &middot; fail-fast: falha em um cancela os irmãos</span>
       <div class="bar"></div>
       <div class="leg l"></div>
       <div class="leg r"></div>
@@ -258,7 +277,7 @@
         <ul class="meta">
           <li><b>modelo</b>claude-opus-5 &middot; 2,20x</li>
           <li><b>janela</b>1M</li>
-          <li><b>entrada</b>diff completo</li>
+          <li><b>escopo</b>produção + teste</li>
           <li><b>prompt</b>code-reviewer.md</li>
           <li><b>herda</b>global-rules.md</li>
         </ul>
@@ -269,9 +288,22 @@
         <ul class="meta">
           <li><b>modelo</b>gpt-5.6-sol &middot; 2,40x</li>
           <li><b>janela</b>272k</li>
-          <li><b>entrada</b>diff completo</li>
+          <li><b>escopo</b>só produção</li>
           <li><b>prompt</b>differential-review</li>
           <li><b>corte</b>confiança &gt; 80%</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="node t2">
+        <div class="name">cr-test</div>
+        <div class="role">qualidade dos testes &middot; ramo próprio, fora do cross-check</div>
+        <ul class="meta">
+          <li><b>modelo</b>glm-5 &middot; 0,50x</li>
+          <li><b>escopo</b>testes + lista da produção</li>
+          <li><b>pergunta</b>estes testes provam algo?</li>
+          <li><b>retorna</b>direto ao orquestrador</li>
         </ul>
       </div>
     </div>
@@ -321,6 +353,7 @@
     <span><i class="gate"></i>gate humano: bloqueia</span>
     <span><i class="stop"></i>guarda de engine: hook</span>
     <span><i class="hook"></i>injeção de contexto</span>
+    <span><i style="border-top-color:var(--t2);border-top-style:dashed"></i>ramo de testes</span>
     <span>paralelo: ramos independentes</span>
   </div>
 

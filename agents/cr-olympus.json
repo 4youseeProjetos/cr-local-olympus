@@ -19,14 +19,16 @@
   "toolsSettings": {
     "crew": {
       "availableAgents": [
-        "cr-triage",
         "cr-quality",
-        "cr-security"
+        "cr-security",
+        "cr-test",
+        "cr-triage"
       ],
       "trustedAgents": [
-        "cr-triage",
         "cr-quality",
-        "cr-security"
+        "cr-security",
+        "cr-test",
+        "cr-triage"
       ]
     },
     "shell": {

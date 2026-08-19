@@ -106,30 +106,106 @@ git -C <REPO> diff <BASE>..<HEAD>
 Os revisores já recebem essa instrução pelo hook de contexto, mas repita o caminho
 absoluto no `prompt_template` — não confie em um só canal.
 
-## Fase 3 — Despachar o pipeline
+## Fase 3 — Dimensionar o pipeline pelo tamanho
 
-Uma única chamada da ferramenta `subagent`, com cinco stages. Os stages folha
-(`cross-qualidade` e `cross-seguranca`) retornam para você.
+Meça antes de despachar, e **separe teste de produção na contagem**:
 
-| stage | role | model | depends_on |
+```bash
+git -C <REPO> diff --numstat <DIFF_ARGS>
+```
+
+Classifique como teste o que casar com o padrão do projeto — `test_*`, `*_test.*`,
+`*.test.*`, `*.spec.*`, `tests/`, `test/`, `spec/`, `__tests__/`, `*Test.java`,
+`conftest.py`, fixtures. Confirme o padrão olhando a árvore, não presuma.
+
+Some separadamente: arquivos e linhas de **produção**, arquivos e linhas de **teste**.
+
+Teste vai para o `cr-test`, que roda em paralelo. Isso normalmente derruba o volume
+que os revisores caros enxergam — em diff real de 4121 linhas, 2434 eram teste, ou
+seja 59% do peso saía do escopo deles só com esse roteamento.
+
+Escolha o perfil pela contagem de **produção**:
+
+| Perfil | Produção | Estratégia |
+|---|---|---|
+| **A** pequeno | ≤ 15 arquivos e ≤ 800 linhas | um passe, modelos padrão |
+| **B** médio | ≤ 40 arquivos ou ≤ 2500 linhas | um passe, **modelos invertidos** |
+| **C** grande | acima disso | **fragmentar por módulo** |
+
+**Perfil B — inverter os modelos.** `cr-security` passa para `claude-opus-5` (janela
+de 1M) e `cr-quality` para `gpt-5.6-sol` (272k). A metodologia de segurança é a mais
+pesada — lê arquivo ao redor, roda `git blame` no que foi removido, rastreia quem
+chama o que mudou — então ela fica com a janela maior. A descorrelação se mantém:
+continua um Claude contra um GPT, só trocam de papel.
+
+**Perfil C — fragmentar.** Peça à triagem que proponha os grupos, porque ela já leu o
+diff inteiro e conhece os módulos. Regras do corte:
+
+- Agrupe por diretório ou módulo. **Nunca parta um diretório** entre shards: separar
+  `auth/session.py` de `auth/token.py` destrói a chance de perceber que um removeu a
+  checagem que o outro assumia.
+- Mire em ≤ 12 arquivos e ≤ 800 linhas de produção por shard.
+- Todo shard recebe a **lista completa** de arquivos alterados, com o subconjunto dele
+  marcado. Sem isso ele não sabe o que existe fora e não consegue dizer "preciso ver X,
+  que não está comigo".
+- **Não fragmente por commit.** Vulnerabilidade introduzida num commit cujo call site
+  muda em outro fica partida entre shards, e cada um vê meia história. Pior: revisar
+  commit a commit revisa estados intermediários que nunca existiram em produção. A
+  unidade revisável é o diff final.
+
+**Despache cada shard como uma chamada separada** de `subagent`, não tudo num DAG só.
+O pipeline é fail-fast, e com muitos shards num único DAG uma falha cancela todos os
+irmãos. Em lotes, uma falha custa um lote.
+
+Diga ao usuário o perfil escolhido, quantos shards e o custo aproximado antes de
+disparar: cada shard são duas execuções a 2,2x e 2,4x de crédito.
+
+## Fase 4 — Despachar o pipeline
+
+Uma única chamada da ferramenta `subagent`. Os stages folha retornam para você.
+
+| stage | role | model (perfil A) | depends_on |
 |---|---|---|---|
 | `triagem` | `cr-triage` | `gpt-5.6-terra` | — |
 | `qualidade` | `cr-quality` | `claude-opus-5` | `triagem` |
 | `seguranca` | `cr-security` | `gpt-5.6-sol` | `triagem` |
+| `testes` | `cr-test` | `glm-5` | `triagem` |
 | `cross-qualidade` | `cr-quality` | `claude-opus-5` | `qualidade`, `seguranca` |
 | `cross-seguranca` | `cr-security` | `gpt-5.6-sol` | `qualidade`, `seguranca` |
 
-`qualidade` e `seguranca` rodam em paralelo e **não veem o laudo um do outro** —
-a independência é o que dá valor ao cross-check. Os dois stages `cross-*` recebem
-os dois laudos automaticamente por dependência.
+No perfil B, troque os modelos de `qualidade`/`cross-qualidade` e
+`seguranca`/`cross-seguranca` entre si. O `cr-test` fica em `glm-5` sempre.
+
+`qualidade`, `seguranca` e `testes` rodam em paralelo, e os dois primeiros **não
+veem o laudo um do outro** — a independência é o que dá valor ao cross-check. Os
+stages `cross-*` recebem os dois laudos automaticamente por dependência.
+
+O `testes` é folha e retorna direto para você. Ele não entra no cross-check: a
+pergunta dele ("estes testes provam algo?") não se cruza com a de segurança.
+
+### Escopo de cada stage
+
+Não é o mesmo para todos, e isso é deliberado:
+
+- `seguranca` — só produção. Arquivo que existe apenas para teste não é reportável
+  como vulnerabilidade, então incluí-lo é gasto de contexto sem retorno.
+- `qualidade` — **produção e teste**. Ele é quem responde "o código novo tem teste?",
+  e ausência de teste só se detecta vendo os dois lados.
+- `testes` — arquivos de teste, **mais a lista** dos arquivos de produção alterados.
+  Ele julga a qualidade dos testes que existem; a lista serve só para ele cruzar e
+  apontar símbolo novo sem teste, em uma linha.
 
 Regras para montar os `prompt_template`:
 
 - **Sempre embuta os SHAs literais** de `BASE..HEAD` no texto de cada stage. Não
   escreva "o range confirmado"; escreva os SHAs.
+- **Sempre embuta o caminho do repositório** e instrua `git -C <REPO>`.
 - Repasse a saída da triagem como **prioridade de leitura, nunca como filtro**.
-  Deixe explícito no prompt: o diff completo está em escopo, e o revisor tem
-  autoridade para contrariar a triagem e escalar achado em arquivo marcado BAIXO.
+  Deixe explícito no prompt: o diff completo do escopo daquele stage permanece sob
+  revisão, e o revisor tem autoridade para contrariar a triagem e escalar achado em
+  arquivo marcado BAIXO.
+- Em modo `working`, repasse a lista de arquivos **não rastreados** — eles não
+  aparecem em `git diff` e precisam ser lidos por inteiro.
 - Exija de todo stage: **declarar cobertura** no formato `analisei X de Y arquivos`.
   Subagente tem limite de turnos não configurável e, se bater, devolve trabalho
   parcial sem erro. A linha de cobertura é como você detecta truncamento.
@@ -139,6 +215,23 @@ Regras para montar os `prompt_template`:
     descarte o que estiver abaixo de 80% de confiança.
   - `cross-qualidade`: as correções propostas pela segurança quebram design,
     testes ou performance? Alguma é YAGNI sobre código que ninguém chama?
+
+### Se algum stage voltar truncado, redespache
+
+Depois de cada rodada, leia a linha `analisei X de Y` de **todos** os stages. Se
+algum tiver X < Y, o subagente bateu o limite de turnos e devolveu trabalho parcial.
+
+Nesse caso, redespache uma instância nova do **mesmo** agente com apenas os arquivos
+que ficaram de fora. Instância nova nasce com orçamento de turnos e contexto zerados,
+então o que não caberia num passe cabe em dois.
+
+No máximo duas rodadas de recuperação. Se ainda voltar incompleto, pare e diga ao
+usuário quais arquivos não foram revisados — nunca apresente cobertura parcial como
+se fosse revisão completa.
+
+Isso é mais confiável que tentar acertar o tamanho do shard de antemão, porque o
+limite de turnos não é documentado nem observável: aqui a própria instrumentação de
+cobertura vira o gatilho da correção.
 
 ### Os stages cross-* têm que emitir o laudo completo
 
@@ -158,9 +251,9 @@ O pipeline é **fail-fast**: se um stage falhar, os irmãos em execução são
 cancelados. Se isso acontecer, diga qual stage caiu e o motivo — não apresente
 resultado parcial como se fosse revisão completa.
 
-## Fase 4 — Consolidar
+## Fase 5 — Consolidar
 
-Junte os dois laudos do cross-check em **um** relatório:
+Junte os laudos — os dois do cross-check mais o de testes — em **um** relatório:
 
 - **Dedupe** — achado que os dois apontaram vira um item, marcado como confirmado
   em dupla. Concordância entre modelos de famílias diferentes é o sinal mais forte
@@ -170,6 +263,11 @@ Junte os dois laudos do cross-check em **um** relatório:
 - **Severidade** — Crítico / Importante / Menor. Calibre: não é tudo crítico.
 - **Cobertura** — reproduza as linhas `analisei X de Y` de cada stage. Se algum
   não cobriu tudo, diga na abertura do relatório.
+- **Testes** — seção própria com o laudo do `cr-test`. Não dilua os achados dele
+  nos outros: a pergunta "os testes provam algo?" tem resposta independente de
+  "o código está correto?", e misturar as duas esconde suíte fraca sob código bom.
+- **Perfil e shards** — diga qual perfil de tamanho foi usado e, se houve
+  fragmentação, quantos shards e se algum achado cruzou fronteira de shard.
 - **Veredito** — pronto para merge / com ajustes / não.
 
 Cada item precisa de referência `arquivo:linha`, o que está errado, por que
@@ -182,8 +280,9 @@ aplica nada sem pedido explícito** — este fluxo é de leitura.
 
 ## Dependências
 
-Os três agentes precisam estar instalados (`./install.sh` em `~/cr-local-olympus`):
-`cr-triage`, `cr-quality`, `cr-security`. Confira com `kiro-cli agent list`.
+Os quatro agentes revisores precisam estar instalados (`./install.sh` na raiz do
+clone): `cr-triage`, `cr-quality`, `cr-security`, `cr-test`. Confira com
+`kiro-cli agent list`.
 
 Se algum estiver faltando, pare e avise — não substitua por outro agente nem
 tente revisar você mesmo, porque isso perde o read-only e a diversidade de modelo,

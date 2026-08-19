@@ -57,7 +57,31 @@ produz.
 
 `qualidade` e `seguranca` rodam em paralelo **sem ver o laudo um do outro** — a
 independência é o que dá valor ao cross-check. Depois os dois stages `cross-*`
-recebem ambos os laudos e trocam de lente.
+recebem ambos os laudos e trocam de lente. O `cr-test` corre num ramo próprio e
+retorna direto, porque a pergunta dele não se cruza com segurança.
+
+### Diff grande
+
+O gargalo não é a janela de contexto — é o **limite de turnos** do subagente, que não
+é configurável e devolve trabalho parcial *sem erro*. O fluxo lida com isso em três
+camadas:
+
+**Roteia teste para fora.** Arquivo de teste vai para o `cr-test`, o que tira peso dos
+revisores caros. Em diff real de 4121 linhas, 2434 eram teste — 59% do volume saía do
+escopo deles só com esse desvio.
+
+**Dimensiona pelo volume de produção.** Até 15 arquivos e 800 linhas, passe único.
+Até 40 arquivos ou 2500 linhas, os modelos se invertem: segurança vai para
+`claude-opus-5` (1M de janela) porque a metodologia dela é a mais pesada, e qualidade
+para `gpt-5.6-sol`. A descorrelação se mantém, só trocam de papel. Acima disso,
+fragmenta por módulo — nunca por commit, e nunca partindo um diretório.
+
+**Redespacha o que truncou.** Todo stage declara `analisei X de Y arquivos`. Se X < Y,
+o orquestrador redespacha uma instância nova do mesmo agente com só os arquivos que
+faltaram; instância nova nasce com orçamento de turnos zerado. Isso é mais confiável
+que tentar acertar o tamanho do shard de antemão, porque o limite de turnos não é
+documentado nem observável — aqui a instrumentação de cobertura vira o gatilho da
+correção.
 
 Diagrama completo com modelos, janelas de contexto e guardas:
 [`docs/fluxo-cr.html`](docs/fluxo-cr.html)
@@ -175,19 +199,23 @@ Comece por um PR pequeno e já conhecido, onde você sabe o que deveria ser apon
 Isso calibra o ruído dos revisores antes de você confiar neles em mudança grande.
 
 **Confira a linha `analisei X de Y arquivos`** no fim de cada laudo. É como se detecta
-que um revisor não cobriu tudo — o que pode acontecer em silêncio, porque o limite de
-turnos do subagente não é configurável e, ao bater, ele devolve trabalho parcial sem
-erro. Em diff acima de ~2000 linhas o `cr-security` também pode truncar por janela
-(272k contra 1M do Claude); nesse caso estreite o escopo ou inverta os modelos.
+que um revisor não cobriu tudo — o que acontece em silêncio, porque o limite de turnos
+do subagente não é configurável e, ao bater, ele devolve trabalho parcial sem erro. O
+orquestrador deve redespachar sozinho o que truncou; se ele não fizer, cobre.
 
 ## Componentes
 
-| Componente          | Papel                                | Modelo          |
-|---------------------|--------------------------------------|-----------------|
-| `/cr-local-olympus` | skill de entrada, monta o pipeline   | —               |
-| `cr-triage`         | classifica risco por arquivo         | `gpt-5.6-terra` |
-| `cr-quality`        | qualidade, arquitetura, testes       | `claude-opus-5` |
-| `cr-security`       | segurança do diff, com filtro de FP  | `gpt-5.6-sol`   |
+| Componente          | Papel                                 | Modelo          |
+|---------------------|---------------------------------------|-----------------|
+| `/cr-local-olympus` | skill de entrada, monta o pipeline    | —               |
+| `cr-olympus`        | orquestrador, gate e consolidação     | o da sessão     |
+| `cr-triage`         | classifica risco por arquivo          | `gpt-5.6-terra` |
+| `cr-quality`        | qualidade, arquitetura, cobertura     | `claude-opus-5` |
+| `cr-security`       | segurança do diff, com filtro de FP   | `gpt-5.6-sol`   |
+| `cr-test`           | qualidade dos testes que existem      | `glm-5`         |
+
+Quatro famílias de modelo no total: Claude, GPT e GLM. Nenhum revisor compartilha
+família com quem revisa o mesmo ângulo.
 
 A triagem é **consultiva, nunca filtro**: o diff completo permanece em escopo para
 os dois revisores, e cada um tem autoridade para contrariar a classificação e
