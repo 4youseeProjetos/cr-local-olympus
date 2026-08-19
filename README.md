@@ -27,6 +27,22 @@ Depois: **reinicie a sessão**, entre em `/agent cr-olympus` e rode
 > de rodar sobre um diff mal definido vive na config do `cr-olympus`; a partir de
 > qualquer outro agente a skill funciona, mas sem trava nenhuma.
 
+## 🔄 Atualização em um prompt
+
+```
+Atualize o cr-local-olympus: em ~/cr-local-olympus faça git pull, rode
+./install.sh e depois python3 tests/check-consistency.py. Me mostre a saída
+dos dois.
+```
+
+O `install.sh` é **obrigatório** no update, não opcional: os agentes são renderizados
+com o caminho do seu clone, então um `git pull` sozinho atualiza os templates sem
+atualizar o que o kiro realmente carrega.
+
+**Reinicie a sessão depois.** Config de agente tem hot-reload, mas verificamos que
+agente criado no meio de uma sessão é aceito pelo nome enquanto seu campo `model` é
+ignorado — o stage cai no modelo da sessão. Reiniciar elimina a ambiguidade.
+
 ---
 
 ## O problema
@@ -245,6 +261,11 @@ Confirmado por teste nesta stack, sem estar na documentação da Kiro:
   retorna — por isso os `cross-*` emitem o laudo completo, não só o delta
 - O subagente **herda o diretório da sessão pai**, não o do repositório revisado.
   Por isso o estado guarda `REPO=` e todo git roda com `git -C`
+- O `model` declarado na config do agente **não** é aplicado quando o stage não
+  passa `model` explícito: o subagente roda no modelo da sessão. Verificado forçando
+  `glm-5` e `claude-haiku-4.5` por stage, com auto-relato correto nos dois, contra o
+  mesmo agente respondendo `claude-opus-4.8` quando o stage omitia o modelo. Por isso
+  a skill sempre embute o modelo em cada stage
 - `kiro-cli agent list` reconhece agente via symlink
 
 Smoke test de ponta a ponta contra um diff com falha plantada: a triagem classificou,

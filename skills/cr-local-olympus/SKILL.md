@@ -176,6 +176,12 @@ Uma única chamada da ferramenta `subagent`. Os stages folha retornam para você
 No perfil B, troque os modelos de `qualidade`/`cross-qualidade` e
 `seguranca`/`cross-seguranca` entre si. O `cr-test` fica em `glm-5` sempre.
 
+**Passe `model` explicitamente em todo stage.** Verificado: quando o stage omite
+`model`, o subagente roda no modelo da sessão e **ignora** o que a config do agente
+declara. Isso não dá erro — a revisão inteira roda num só modelo e você perde a
+descorrelação, que é a única razão de existirem dois revisores. É a falha mais
+silenciosa deste fluxo.
+
 `qualidade`, `seguranca` e `testes` rodam em paralelo, e os dois primeiros **não
 veem o laudo um do outro** — a independência é o que dá valor ao cross-check. Os
 stages `cross-*` recebem os dois laudos automaticamente por dependência.
