@@ -4,6 +4,31 @@ Code review do seu PR local por **dois revisores independentes** no kiro-cli: um
 qualidade e arquitetura, um de segurança — rodando em **modelos de famílias
 diferentes**, para que os pontos cegos não coincidam.
 
+---
+
+## ⚡ Instalação em um prompt
+
+Cole isto no kiro-cli e pronto:
+
+```
+Instale o cr-local-olympus neste kiro: clone
+https://github.com/4youseeProjetos/cr-local-olympus.git em ~/cr-local-olympus,
+rode ./install.sh e me mostre a saída. Se a pasta já existir, faça git pull e
+rode ./install.sh de novo.
+```
+
+O agente vai pedir sua aprovação antes de rodar os comandos — é aí que você confere
+o que está sendo executado. O `install.sh` termina imprimindo os próximos passos.
+
+Depois: **reinicie a sessão**, entre em `/agent cr-olympus` e rode
+`/cr-local-olympus` dentro do repositório que quer revisar.
+
+> Os dois passos depois do install não são decorativos. O hook que impede a revisão
+> de rodar sobre um diff mal definido vive na config do `cr-olympus`; a partir de
+> qualquer outro agente a skill funciona, mas sem trava nenhuma.
+
+---
+
 ## O problema
 
 Um revisor de IA sozinho tem dois vícios previsíveis: mistura preocupação de estilo
@@ -44,7 +69,9 @@ Diagrama completo com modelos, janelas de contexto e guardas:
 - `git`
 - O agente da sua sessão precisa ter a ferramenta `subagent` disponível
 
-## Instalação
+## Instalação manual
+
+Se preferir não usar o prompt acima, ou quiser ler o `install.sh` antes de rodar:
 
 **1. Clone e instale** — onde preferir, o `install.sh` se localiza sozinho:
 

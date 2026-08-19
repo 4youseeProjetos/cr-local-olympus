@@ -102,9 +102,39 @@ install_all() {
   done < <(skill_dirs)
 
   mv "$new_manifest" "$MANIFEST"
-  printf '\nRaiz resolvida: %s\n' "$ROOT"
-  printf 'Manifesto: %s\n' "$MANIFEST"
-  printf 'Confirme com: kiro-cli agent list\n'
+  print_next_steps
+}
+
+# O install é o último ponto em que temos a atenção de quem instalou. Se os próximos
+# passos não saírem aqui, o usuário roda a skill do agente errado e o gate — que é a
+# salvaguarda central — fica inerte sem nenhum sinal.
+print_next_steps() {
+  cat <<EOF
+
+Raiz resolvida: ${ROOT}
+Manifesto:      ${MANIFEST}
+
+PRÓXIMOS PASSOS
+
+  1. Reinicie a sessão do kiro-cli.
+     Agente novo só é carregado na inicialização.
+
+  2. Entre no agente orquestrador:
+       /agent cr-olympus
+
+     Obrigatório. O hook que barra o review antes de você confirmar a base do
+     diff vive na config desse agente. De outro agente a skill roda, mas sem
+     trava nenhuma.
+
+  3. De dentro do repositório que quer revisar:
+       /cr-local-olympus
+
+CONFERIR
+
+  ./install.sh --status               todos devem dizer "instalado"
+  kiro-cli agent list | grep cr-      4 agentes
+  python3 tests/check-consistency.py  deve terminar em 0 divergências
+EOF
 }
 
 remove_all() {
