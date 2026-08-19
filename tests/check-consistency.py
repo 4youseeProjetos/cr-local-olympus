@@ -26,6 +26,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 AGENTS_DIR = ROOT / "agents"
 DIAGRAM = ROOT / "docs" / "fluxo-cr.html"
 SKILL = ROOT / "skills" / "cr-local-olympus" / "SKILL.md"
+LIGHT_SKILL = ROOT / "skills" / "cr-light-local-olympus" / "SKILL.md"
 README = ROOT / "README.md"
 
 MODEL_IN_DIAGRAM = "(o da sessão)"
@@ -174,16 +175,42 @@ def check_readme_table(agents: dict[str, dict], readme_text: str) -> list[str]:
     return problems
 
 
+def check_light_skill_models(agents: dict[str, dict], light_text: str) -> list[str]:
+    """Confere que a versao light usa os mesmos modelos que os agentes da completa.
+
+    A light nao tem agente proprio: ela nomeia os modelos direto no texto, porque
+    injeta 'model' por stage. Isso e' o que faz uma skill sozinha ter diversidade de
+    familia — e tambem o que a faz divergir em silencio quando a versao completa troca
+    de modelo. Aqui a divergencia vira falha de teste.
+    """
+    expected = {
+        "cr-security": agents.get("cr-security", {}).get("model"),
+        "cr-quality": agents.get("cr-quality", {}).get("model"),
+    }
+    problems: list[str] = []
+    for agent_name, model in expected.items():
+        if not model:
+            problems.append(f"{agent_name}: sem model na config, nada a comparar")
+        elif model not in light_text:
+            problems.append(
+                f"{agent_name} usa {model}, que nao aparece na skill light — "
+                "as duas versoes divergiram de modelo"
+            )
+    return problems
+
+
 def main() -> int:
     agents = load_agents()
     nodes = extract_diagram_nodes(DIAGRAM.read_text(encoding="utf-8"))
     skill_text = SKILL.read_text(encoding="utf-8")
+    light_text = LIGHT_SKILL.read_text(encoding="utf-8")
     readme_text = README.read_text(encoding="utf-8")
 
     checks = {
         "modelo do diagrama vs config": check_models(agents, nodes),
         "tabela de componentes do README": check_readme_table(agents, readme_text),
         "revisores citados na skill": check_skill_roles(agents, skill_text),
+        "modelos da skill light vs agentes": check_light_skill_models(agents, light_text),
         "allowlist do orquestrador": check_orchestrator_allowlist(agents),
         "prompts e hooks referenciados": check_referenced_files(agents),
     }
